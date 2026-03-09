@@ -1,0 +1,150 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+  --font-sans: 'Manrope', 'Instrument Sans', system-ui, sans-serif;
+  --color-brand: #8b5cf6;
+  --color-brand-light: #a78bfa;
+  --color-accent: #06b6d4;
+  --color-surface: #0f0f12;
+  --color-surface-elevated: #18181c;
+  --color-surface-card: #1c1c21;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-hover: rgba(255, 255, 255, 0.15);
+  --color-muted: #71717a;
+  --color-text: #fafafa;
+  --color-text-secondary: #a1a1aa;
+}
+
+/* Градиент в стиле логотипа: фиолетовый → голубой */
+.gradient-text {
+  background: linear-gradient(135deg, #a78bfa 0%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-border {
+  position: relative;
+  background: var(--color-surface-card);
+  border-radius: 1rem;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(167, 139, 250, 0.4), rgba(6, 182, 212, 0.4));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%);
+  color: white;
+  font-weight: 600;
+  padding: 0.5rem 1.25rem;
+  border-radius: 0.75rem;
+  transition: opacity 0.2s, transform 0.15s;
+}
+.btn-primary:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+/* Скроллбар */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.4) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.4);
+  border-radius: 3px;
+}
+
+/* Таблица событий */
+.events-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+.events-table th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.events-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+.events-table tbody tr {
+  transition: background 0.15s;
+}
+.events-table tbody tr:hover {
+  background: rgba(139, 92, 246, 0.06);
+}
+.events-table .poster-cell {
+  width: 80px;
+  padding-right: 0;
+}
+.events-table .poster-thumb {
+  width: 64px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+}
+
+/* Переключатель вид: таблица / карточки */
+.view-toggle button {
+  transition: color 0.2s, background 0.2s;
+}
+.view-toggle button.active {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(6, 182, 212, 0.2));
+  color: var(--color-text);
+}
+
+/* Пагинация в тёмной теме */
+.pagination-wrap nav a,
+.pagination-wrap nav span {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: #18181c !important;
+  color: #a1a1aa !important;
+}
+.pagination-wrap nav a:hover {
+  background: rgba(139, 92, 246, 0.15) !important;
+  color: #fafafa !important;
+  border-color: rgba(139, 92, 246, 0.3) !important;
+}
+.pagination-wrap nav span[aria-current="page"] span {
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4) !important;
+  color: white !important;
+  border-color: transparent !important;
+}
+.pagination-wrap p.text-gray-700 {
+  color: #a1a1aa !important;
+}
+.pagination-wrap .dark\:text-gray-600 {
+  color: #71717a !important;
+}

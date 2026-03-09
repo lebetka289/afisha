@@ -1,0 +1,264 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\Artist;
+use App\Models\Event;
+use App\Models\EventAddon;
+use App\Models\EventSection;
+use App\Models\EventSeat;
+use App\Models\Venue;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
+
+class EventController extends Controller
+{
+    public function index(): View
+    {
+        $events = Event::query()->with('venue')->latest()->paginate(10);
+
+        return view('admin.events.index', compact('events'));
+    }
+
+    public function create(): View
+    {
+        $venues = Venue::orderBy('name')->get();
+        $artists = Artist::orderBy('name')->get();
+
+        return view('admin.events.create', [
+            'event' => new Event(),
+            'venues' => $venues,
+            'artists' => $artists,
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $data = $this->validateEvent($request);
+
+        $event = null;
+
+        DB::transaction(function () use ($data, &$event) {
+            $sectionsPayload = $data['sections_payload'];
+            $addonsPayload = $data['addons_payload'] ?? [];
+            unset($data['sections_payload'], $data['addons_payload']);
+
+            $event = Event::create($data);
+
+            $this->syncSections($event, $sectionsPayload);
+            $this->syncAddons($event, $addonsPayload);
+        });
+
+        return redirect()->route('admin.events.edit', $event)->with('status', 'Событие создано');
+    }
+
+    public function edit(Event $event): View
+    {
+        $event->load('sections.seats', 'addons');
+        $venues = Venue::orderBy('name')->get();
+        $artists = Artist::orderBy('name')->get();
+
+        return view('admin.events.edit', compact('event', 'venues', 'artists'));
+    }
+
+    public function update(Request $request, Event $event): RedirectResponse
+    {
+        $data = $this->validateEvent($request, $event->id);
+
+        DB::transaction(function () use ($data, $event) {
+            $sectionsPayload = $data['sections_payload'];
+            $addonsPayload = $data['addons_payload'] ?? [];
+            unset($data['sections_payload'], $data['addons_payload']);
+
+            $event->update($data);
+
+            $this->syncSections($event, $sectionsPayload);
+            $this->syncAddons($event, $addonsPayload);
+        });
+
+        return redirect()->route('admin.events.edit', $event)->with('status', 'Событие обновлено');
+    }
+
+    public function destroy(Event $event): RedirectResponse
+    {
+        $event->delete();
+
+        return redirect()->route('admin.events.index')->with('status', 'Событие удалено');
+    }
+
+    protected function validateEvent(Request $request, ?int $eventId = null): array
+    {
+        $uniqueSlugRule = 'unique:events,slug';
+        if ($eventId) {
+            $uniqueSlugRule .= ',' . $eventId;
+        }
+
+        $validated = $request->validate([
+            'title' => ['required', 'string', 'max:255'],
+            'slug' => ['nullable', 'string', 'max:255', $uniqueSlugRule],
+            'venue_id' => ['nullable', 'exists:venues,id'],
+            'artist_id' => ['nullable', 'exists:artists,id'],
+            'subtitle' => ['nullable', 'string', 'max:255'],
+            'category' => ['required', 'in:concert,theater,show,standup'],
+            'description' => ['nullable', 'string'],
+            'poster_url' => ['nullable', 'url'],
+            'start_at' => ['nullable', 'date'],
+            'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
+            'sales_start_at' => ['nullable', 'date'],
+            'sales_end_at' => ['nullable', 'date', 'after_or_equal:sales_start_at'],
+            'status' => ['required', 'in:draft,published,archived'],
+            'max_tickets' => ['nullable', 'integer', 'min:0'],
+            'layout_type' => ['required', 'string', 'max:50'],
+            'layout_config' => ['nullable'],
+            'meta' => ['nullable'],
+            'sections_payload' => ['required'],
+            'addons_payload' => ['nullable'],
+        ]);
+
+        $layoutConfig = $this->decodeJsonField($validated['layout_config'] ?? null);
+        $meta = $this->decodeJsonField($validated['meta'] ?? null);
+        $sectionsPayload = $this->decodeJsonField($validated['sections_payload']);
+        $validated['addons_payload'] = $this->decodeJsonField($validated['addons_payload'] ?? null) ?? [];
+
+        if (! is_array($sectionsPayload) || empty($sectionsPayload)) {
+            throw ValidationException::withMessages([
+                'sections_payload' => 'Необходимо добавить хотя бы одну зону/сектор',
+            ]);
+        }
+
+        $validated['layout_config'] = $layoutConfig;
+        $validated['meta'] = $meta;
+        $validated['sections_payload'] = $sectionsPayload;
+
+        return $validated;
+    }
+
+    protected function syncSections(Event $event, array $sectionsPayload): void
+    {
+        $existingIds = $event->sections()->pluck('id')->all();
+        $keepIds = [];
+
+        foreach ($sectionsPayload as $index => $sectionData) {
+            $sectionAttributes = Arr::only($sectionData, [
+                'name',
+                'type',
+                'seating_mode',
+                'capacity',
+                'price',
+                'rows',
+                'cols',
+                'seat_map',
+                'position',
+                'color',
+                'sort_order',
+                'meta',
+            ]);
+
+            $sectionAttributes['sort_order'] = $sectionAttributes['sort_order'] ?? $index;
+            $sectionAttributes['capacity'] = $sectionAttributes['capacity'] ?? 0;
+            $sectionAttributes['price'] = $sectionAttributes['price'] ?? 0;
+
+            if (! empty($sectionData['id']) && in_array($sectionData['id'], $existingIds, true)) {
+                $section = EventSection::find($sectionData['id']);
+                $section?->update($sectionAttributes);
+            } else {
+                $section = $event->sections()->create($sectionAttributes);
+            }
+
+            if (! $section) {
+                continue;
+            }
+
+            $keepIds[] = $section->id;
+
+            if ($section->seating_mode === 'seated') {
+                $this->syncSeats($section, $sectionData);
+            } else {
+                $section->seats()->delete();
+            }
+        }
+
+        $event->sections()->whereNotIn('id', $keepIds)->delete();
+    }
+
+    protected function syncAddons(Event $event, array $addonsPayload): void
+    {
+        $keepIds = [];
+        foreach ($addonsPayload as $index => $row) {
+            $name = trim($row['name'] ?? '');
+            if ($name === '') {
+                continue;
+            }
+            $price = (float) ($row['price'] ?? 0);
+            $description = trim($row['description'] ?? '');
+            $id = $row['id'] ?? null;
+
+            if ($id && $event->addons()->where('id', $id)->exists()) {
+                $addon = EventAddon::find($id);
+                $addon?->update(['name' => $name, 'price' => $price, 'description' => $description ?: null, 'sort_order' => $index]);
+                $keepIds[] = $addon->id;
+            } else {
+                $addon = $event->addons()->create(['name' => $name, 'price' => $price, 'description' => $description ?: null, 'sort_order' => $index]);
+                $keepIds[] = $addon->id;
+            }
+        }
+        $event->addons()->whereNotIn('id', $keepIds)->delete();
+    }
+
+    protected function syncSeats(EventSection $section, array $sectionData): void
+    {
+        $rows = (int) ($sectionData['rows'] ?? 0);
+        $cols = (int) ($sectionData['cols'] ?? 0);
+        $seatMap = $sectionData['seat_map'] ?? [];
+
+        $section->seats()->delete();
+
+        if ($rows <= 0 || $cols <= 0) {
+            return;
+        }
+
+        $bulk = [];
+        for ($row = 1; $row <= $rows; $row++) {
+            for ($col = 1; $col <= $cols; $col++) {
+                $status = Arr::get($seatMap, "{$row}.{$col}.status", 'available');
+                $label = Arr::get($seatMap, "{$row}.{$col}.label", chr(64 + $row) . $col);
+                $price = Arr::get($seatMap, "{$row}.{$col}.price", $section->price);
+
+                if ($status === 'blocked') {
+                    continue;
+                }
+
+                $bulk[] = [
+                    'event_section_id' => $section->id,
+                    'label' => $label,
+                    'row_number' => $row,
+                    'col_number' => $col,
+                    'status' => $status,
+                    'price' => $price,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        if (! empty($bulk)) {
+            EventSeat::insert($bulk);
+        }
+    }
+
+    protected function decodeJsonField(mixed $value): mixed
+    {
+        if (is_array($value) || is_null($value) || $value === '') {
+            return $value ?: null;
+        }
+
+        $decoded = json_decode($value, true);
+
+        return json_last_error() === JSON_ERROR_NONE ? $decoded : null;
+    }
+}
