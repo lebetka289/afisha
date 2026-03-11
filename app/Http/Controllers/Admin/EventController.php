@@ -13,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -106,11 +107,12 @@ class EventController extends Controller
             'subtitle' => ['nullable', 'string', 'max:255'],
             'category' => ['required', 'in:concert,theater,show,standup'],
             'description' => ['nullable', 'string'],
-            'poster_url' => ['nullable', 'url'],
+            'poster_url' => ['nullable', 'string', 'max:2048'],
+            'poster_upload' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,mp4,webm,mov', 'max:51200'],
             'start_at' => ['nullable', 'date'],
-            'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
+            'end_at' => ['nullable', 'date', ...($request->filled('start_at') ? ['after_or_equal:start_at'] : [])],
             'sales_start_at' => ['nullable', 'date'],
-            'sales_end_at' => ['nullable', 'date', 'after_or_equal:sales_start_at'],
+            'sales_end_at' => ['nullable', 'date', ...($request->filled('sales_start_at') ? ['after_or_equal:sales_start_at'] : [])],
             'status' => ['required', 'in:draft,published,archived'],
             'max_tickets' => ['nullable', 'integer', 'min:0'],
             'layout_type' => ['required', 'string', 'max:50'],
@@ -134,6 +136,25 @@ class EventController extends Controller
         $validated['layout_config'] = $layoutConfig;
         $validated['meta'] = $meta;
         $validated['sections_payload'] = $sectionsPayload;
+
+        if ($request->hasFile('poster_upload')) {
+            if ($eventId) {
+                $existingEvent = Event::find($eventId);
+                if ($existingEvent && filled($existingEvent->poster_url) && ! filter_var($existingEvent->poster_url, FILTER_VALIDATE_URL)) {
+                    Storage::disk('public')->delete($existingEvent->poster_url);
+                }
+            }
+
+            $validated['poster_url'] = $request->file('poster_upload')->store('events', 'public');
+        } elseif (($validated['poster_url'] ?? '') === '' && $eventId) {
+            $existingEvent = Event::find($eventId);
+            if ($existingEvent && filled($existingEvent->poster_url) && ! filter_var($existingEvent->poster_url, FILTER_VALIDATE_URL)) {
+                Storage::disk('public')->delete($existingEvent->poster_url);
+            }
+            $validated['poster_url'] = null;
+        }
+
+        unset($validated['poster_upload']);
 
         return $validated;
     }

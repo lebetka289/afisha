@@ -27,10 +27,14 @@
 
     <div class="space-y-3">
         <label class="text-xs uppercase text-slate-500 tracking-wide block">Фото исполнителя
-            <input type="file" name="photo" accept="image/png,image/jpeg,image/gif,image/webp" class="mt-1 block w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-white">
+            <input type="file" name="photo" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm,video/quicktime" class="mt-1 block w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-white">
         </label>
         @if($artist->photo)
-            <img src="{{ route('media.show', ['path' => $artist->photo]) }}" alt="" class="w-32 h-32 rounded-2xl object-cover border border-slate-800">
+            @if($artist->photo_is_video)
+                <video src="{{ $artist->photo_src }}" controls class="w-40 h-32 rounded-2xl object-cover border border-slate-800 bg-black"></video>
+            @else
+                <img src="{{ $artist->photo_src }}" alt="" class="w-32 h-32 rounded-2xl object-cover border border-slate-800">
+            @endif
         @endif
     </div>
 

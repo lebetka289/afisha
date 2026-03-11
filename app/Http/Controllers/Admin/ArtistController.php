@@ -67,7 +67,7 @@ class ArtistController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255', $uniqueSlugRule],
             'description' => ['nullable', 'string'],
-            'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp', 'max:5120'],
+            'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,mp4,webm,mov', 'max:51200'],
             'links_json' => ['nullable', 'string'],
         ]);
 

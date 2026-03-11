@@ -15,6 +15,8 @@ class MediaController extends Controller
 
         abort_unless(Storage::disk('public')->exists($path), 404);
 
-        return Storage::disk('public')->response($path);
+        $response = Storage::disk('public')->response($path);
+        $response->headers->set('Cache-Control', 'public, max-age=604800, immutable');
+        return $response;
     }
 }

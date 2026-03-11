@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -63,5 +64,29 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_admin' => 'boolean',
         ];
+    }
+
+    public function getAvatarSrcAttribute(): ?string
+    {
+        if (blank($this->avatar)) {
+            return null;
+        }
+
+        if (filter_var($this->avatar, FILTER_VALIDATE_URL)) {
+            return $this->avatar;
+        }
+
+        return route('media.show', ['path' => $this->avatar]);
+    }
+
+    public function getAvatarIsVideoAttribute(): bool
+    {
+        if (blank($this->avatar)) {
+            return false;
+        }
+
+        $path = parse_url($this->avatar, PHP_URL_PATH) ?: $this->avatar;
+
+        return Str::endsWith(Str::lower($path), ['.mp4', '.webm', '.mov']);
     }
 }

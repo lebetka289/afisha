@@ -90,4 +90,28 @@ class Event extends Model
     {
         return $query->where('status', 'published');
     }
+
+    public function getPosterSrcAttribute(): ?string
+    {
+        if (blank($this->poster_url)) {
+            return null;
+        }
+
+        if (filter_var($this->poster_url, FILTER_VALIDATE_URL)) {
+            return $this->poster_url;
+        }
+
+        return route('media.show', ['path' => $this->poster_url]);
+    }
+
+    public function getPosterIsVideoAttribute(): bool
+    {
+        if (blank($this->poster_url)) {
+            return false;
+        }
+
+        $path = parse_url($this->poster_url, PHP_URL_PATH) ?: $this->poster_url;
+
+        return Str::endsWith(Str::lower($path), ['.mp4', '.webm', '.mov']);
+    }
 }

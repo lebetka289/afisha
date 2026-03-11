@@ -6,6 +6,7 @@ use App\Models\City;
 use App\Models\Event;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
 class EventController extends Controller
@@ -16,7 +17,6 @@ class EventController extends Controller
             ->published()
             ->orderBy('start_at');
 
-        // Диапазон дат: от и до (включительно)
         if ($request->filled('date_from')) {
             $query->whereDate('start_at', '>=', $request->date_from);
         }
@@ -28,15 +28,14 @@ class EventController extends Controller
             $query->where('category', $request->category);
         }
 
-        // Город: по названию города площадки
         if ($request->filled('city')) {
-            $city = City::where('slug', $request->city)->orWhere('id', $request->city)->first();
+            $cities = Cache::remember('all_cities', 3600, fn () => City::all());
+            $city = $cities->firstWhere('slug', $request->city) ?? $cities->firstWhere('id', $request->city);
             if ($city) {
                 $query->whereHas('venue', fn ($q) => $q->where('city', $city->name));
             }
         }
 
-        // Умный поиск: события, площадки, по словам
         if ($request->filled('q')) {
             $search = trim($request->q);
             $query->where(function ($q) use ($search) {
@@ -50,7 +49,7 @@ class EventController extends Controller
         }
 
         $events = $query->paginate(6)->withQueryString();
-        $cities = City::orderBy('sort_order')->orderBy('name')->get();
+        $cities = Cache::remember('all_cities_sorted', 3600, fn () => City::orderBy('sort_order')->orderBy('name')->get());
 
         $today = now()->startOfDay();
         $weekdays = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];

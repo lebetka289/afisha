@@ -38,7 +38,7 @@
     </div>
 @endif
 
-<form method="POST" action="{{ $route }}" class="space-y-10">
+<form method="POST" action="{{ $route }}" enctype="multipart/form-data" class="space-y-10">
     @csrf
     @if($method !== 'POST')
         @method($method)
@@ -103,13 +103,25 @@
                 </label>
             </div>
             <div class="grid grid-cols-2 gap-4">
-                <label class="block text-sm text-slate-400 uppercase tracking-wide">Постер / баннер
-                    <input type="url" name="poster_url" value="{{ old('poster_url', $event->poster_url) }}" class="mt-1 w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-white focus:border-indigo-500 focus:ring-0">
+                <label class="block text-sm text-slate-400 uppercase tracking-wide">Постер / баннер (URL)
+                    <input type="text" name="poster_url" value="{{ old('poster_url', filter_var($event->poster_url, FILTER_VALIDATE_URL) ? $event->poster_url : '') }}" placeholder="https://example.com/poster.jpg" class="mt-1 w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-white focus:border-indigo-500 focus:ring-0">
                 </label>
                 <label class="block text-sm text-slate-400 uppercase tracking-wide">Макс. билетов
                     <input type="number" name="max_tickets" min="0" value="{{ old('max_tickets', $event->max_tickets) }}" class="mt-1 w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-white focus:border-indigo-500 focus:ring-0">
                 </label>
             </div>
+            <label class="block text-sm text-slate-400 uppercase tracking-wide">Загрузить фото / GIF / видео
+                <input type="file" name="poster_upload" accept="image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm,video/quicktime" class="mt-1 w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-white focus:border-indigo-500 focus:ring-0">
+            </label>
+            @if($event->poster_src)
+                <div class="rounded-2xl overflow-hidden border border-slate-800 bg-slate-950">
+                    @if($event->poster_is_video)
+                        <video src="{{ $event->poster_src }}" controls class="w-full max-h-72 object-cover bg-black"></video>
+                    @else
+                        <img src="{{ $event->poster_src }}" alt="" class="w-full max-h-72 object-cover">
+                    @endif
+                </div>
+            @endif
         </div>
         <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4">
             <h2 class="text-lg font-semibold">Описание</h2>
@@ -191,10 +203,12 @@
                         </label>
                     </div>
 
-                    <div class="flex gap-3">
-                        <button type="button" data-save-section class="flex-1 bg-indigo-500 hover:bg-indigo-400 text-white font-semibold rounded-xl py-2 transition">Добавить / Сохранить</button>
-                        <button type="button" data-delete-section class="px-4 py-2 rounded-xl border border-rose-500/50 text-rose-200 text-sm hidden">Удалить</button>
+                    <div class="flex flex-col gap-2">
+                        <button type="button" data-save-section class="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-semibold rounded-xl py-2 transition">Добавить зону</button>
+                        <button type="button" data-new-section class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl py-2 transition hidden">+ Создать новую зону</button>
+                        <button type="button" data-delete-section class="w-full py-2 rounded-xl border border-rose-500/50 text-rose-200 text-sm hidden">Удалить зону</button>
                     </div>
+                    <p class="text-xs text-amber-400/70 hidden" data-price-sync-hint>Цена синхронизируется между зонами с одинаковым типом</p>
                 </div>
             </div>
         </div>
@@ -225,11 +239,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const listContainer = builderEl.querySelector('[data-sections-list]');
         const form = builderEl.querySelector('[data-section-form]');
         const saveBtn = form.querySelector('[data-save-section]');
+        const newBtn = form.querySelector('[data-new-section]');
         const deleteBtn = form.querySelector('[data-delete-section]');
         const resetBtn = builderEl.querySelector('[data-reset-selection]');
         const hiddenInput = document.getElementById('sectionsPayloadInput');
         const modeSelect = form.querySelector('[name="section_mode"]');
         const seatedOnlyFields = form.querySelector('.seated-only');
+        const priceSyncHint = form.querySelector('[data-price-sync-hint]');
 
         let sections = [];
         let editingIndex = null;
@@ -441,19 +457,56 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleSeatFields(section.seating_mode);
         }
 
+        function syncPricesByType(type, price) {
+            let synced = false;
+            sections.forEach((s, i) => {
+                if (s.type === type) {
+                    s.price = price;
+                    synced = true;
+                }
+            });
+            if (synced) syncHiddenInput();
+            return synced;
+        }
+
+        function hasOtherSectionsOfType(type, excludeIndex) {
+            return sections.some((s, i) => i !== excludeIndex && s.type === type);
+        }
+
+        function getPriceForType(type) {
+            const existing = sections.find(s => s.type === type);
+            return existing ? existing.price : null;
+        }
+
+        function updatePriceSyncHint(type) {
+            if (priceSyncHint) {
+                const count = sections.filter(s => s.type === type).length;
+                if (count > 1 || (editingIndex === null && count > 0)) {
+                    priceSyncHint.classList.remove('hidden');
+                } else {
+                    priceSyncHint.classList.add('hidden');
+                }
+            }
+        }
+
         function resetForm() {
             editingIndex = null;
             form.reset();
             deleteBtn.classList.add('hidden');
+            newBtn.classList.add('hidden');
             saveBtn.textContent = 'Добавить зону';
+            if (priceSyncHint) priceSyncHint.classList.add('hidden');
             toggleSeatFields(form.querySelector('[name="section_mode"]').value);
+            renderCanvas();
         }
 
         function startEdit(index) {
             editingIndex = index;
             fillForm(sections[index]);
             deleteBtn.classList.remove('hidden');
+            newBtn.classList.remove('hidden');
             saveBtn.textContent = 'Сохранить изменения';
+            updatePriceSyncHint(sections[index].type);
             renderCanvas();
         }
 
@@ -461,13 +514,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const payload = readFormValues();
             if (editingIndex !== null) {
                 sections[editingIndex] = { ...sections[editingIndex], ...payload };
+                syncPricesByType(payload.type, payload.price);
+                syncHiddenInput();
+                renderCanvas();
+                renderList();
+                startEdit(editingIndex);
             } else {
+                const existingPrice = getPriceForType(payload.type);
+                if (existingPrice !== null) {
+                    payload.price = existingPrice;
+                }
                 sections.push(payload);
+                syncPricesByType(payload.type, payload.price);
+                syncHiddenInput();
+                renderCanvas();
+                renderList();
+                startEdit(sections.length - 1);
             }
-            syncHiddenInput();
+        });
+
+        newBtn.addEventListener('click', () => {
+            resetForm();
             renderCanvas();
             renderList();
-            resetForm();
         });
 
         deleteBtn.addEventListener('click', () => {
@@ -479,7 +548,11 @@ document.addEventListener('DOMContentLoaded', () => {
             resetForm();
         });
 
-        resetBtn?.addEventListener('click', () => resetForm());
+        resetBtn?.addEventListener('click', () => {
+            resetForm();
+            renderCanvas();
+            renderList();
+        });
 
         drawArea.addEventListener('mousedown', (e) => {
             if (e.target !== drawArea) return;
@@ -524,6 +597,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         modeSelect.addEventListener('change', (event) => {
             toggleSeatFields(event.target.value);
+        });
+
+        form.querySelector('[name="section_type"]').addEventListener('change', (event) => {
+            const type = event.target.value;
+            updatePriceSyncHint(type);
+            if (editingIndex === null) {
+                const existingPrice = getPriceForType(type);
+                if (existingPrice !== null) {
+                    form.querySelector('[name="section_price"]').value = existingPrice;
+                }
+            }
         });
 
         toggleSeatFields(modeSelect.value);

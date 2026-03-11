@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\City;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -16,7 +17,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         View::composer('layouts.app', function ($view) {
-            $cities = City::orderBy('sort_order')->orderBy('name')->get();
+            $cities = Cache::remember('header_cities', 3600, function () {
+                return City::orderBy('sort_order')->orderBy('name')->get();
+            });
+
             $currentCityName = 'Выберите город';
             $citySlug = request('city');
             if ($citySlug) {
