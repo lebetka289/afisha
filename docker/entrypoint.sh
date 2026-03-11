@@ -1,23 +1,10 @@
 #!/bin/sh
 set -e
 
-# Wait for MySQL to be ready (already waited via depends_on healthcheck, but double-check)
-until php -r "
-  try {
-    new PDO(
-      'mysql:host=${DB_HOST};dbname=${DB_DATABASE}',
-      '${DB_USERNAME}',
-      '${DB_PASSWORD}',
-      [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-    );
-    exit(0);
-  } catch (Throwable \$e) {
-    exit(1);
-  }
-" 2>/dev/null; do
-  echo "Waiting for MySQL..."
-  sleep 2
-done
+# Ensure SQLite file exists
+mkdir -p database
+touch database/database.sqlite
+chmod -R 775 database
 
 echo "Running migrations..."
 php artisan migrate --force

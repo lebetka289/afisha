@@ -9,6 +9,8 @@ storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
 bootstrap/cache/*
+public/storage
+database/*.sqlite
 *.md
 .idea
 .vscode
