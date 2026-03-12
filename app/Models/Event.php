@@ -33,6 +33,11 @@ class Event extends Model
         'meta',
     ];
 
+    protected $appends = [
+        'poster_src',
+        'poster_is_video',
+    ];
+
     protected $casts = [
         'start_at' => 'datetime',
         'end_at' => 'datetime',

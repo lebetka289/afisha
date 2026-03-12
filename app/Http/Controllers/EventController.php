@@ -9,9 +9,12 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 
+use Inertia\Inertia;
+use Inertia\Response;
+
 class EventController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): Response
     {
         $query = Event::with(['venue', 'sections'])
             ->published()
@@ -66,7 +69,7 @@ class EventController extends Controller
             ]);
         }
 
-        return view('events.index', [
+        return Inertia::render('Events/Index', [
             'events' => $events,
             'cities' => $cities,
             'rouletteDates' => $rouletteDates,
@@ -110,13 +113,18 @@ class EventController extends Controller
         ]);
     }
 
-    public function show(Event $event): View
+    public function show(Event $event): Response
     {
         $event->load('sections.seats', 'addons', 'venue');
         $isFavorited = auth()->check() && auth()->user()->favoriteEvents()->where('event_id', $event->id)->exists();
         $mapLat = $event->venue?->latitude ?? 55.7558;
         $mapLng = $event->venue?->longitude ?? 37.6173;
 
-        return view('events.show', compact('event', 'isFavorited', 'mapLat', 'mapLng'));
+        return Inertia::render('Events/Show', [
+            'event' => $event,
+            'isFavorited' => $isFavorited,
+            'mapLat' => $mapLat,
+            'mapLng' => $mapLng,
+        ]);
     }
 }

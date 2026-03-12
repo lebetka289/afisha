@@ -8,20 +8,21 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class ArtistController extends Controller
 {
-    public function index(): View
+    public function index(): Response
     {
         $artists = Artist::latest()->paginate(15);
 
-        return view('admin.artists.index', compact('artists'));
+        return Inertia::render('Admin/Artists/Index', compact('artists'));
     }
 
-    public function create(): View
+    public function create(): Response
     {
-        return view('admin.artists.create', ['artist' => new Artist()]);
+        return Inertia::render('Admin/Artists/Create', ['artist' => new Artist()]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -32,9 +33,9 @@ class ArtistController extends Controller
         return redirect()->route('admin.artists.index')->with('status', 'Исполнитель создан');
     }
 
-    public function edit(Artist $artist): View
+    public function edit(Artist $artist): Response
     {
-        return view('admin.artists.edit', compact('artist'));
+        return Inertia::render('Admin/Artists/Edit', compact('artist'));
     }
 
     public function update(Request $request, Artist $artist): RedirectResponse

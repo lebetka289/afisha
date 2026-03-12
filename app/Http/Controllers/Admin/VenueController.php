@@ -7,20 +7,21 @@ use App\Models\Venue;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class VenueController extends Controller
 {
-    public function index(): View
+    public function index(): Response
     {
         $venues = Venue::latest()->paginate(15);
 
-        return view('admin.venues.index', compact('venues'));
+        return Inertia::render('Admin/Venues/Index', compact('venues'));
     }
 
-    public function create(): View
+    public function create(): Response
     {
-        return view('admin.venues.create', ['venue' => new Venue()]);
+        return Inertia::render('Admin/Venues/Create', ['venue' => new Venue()]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -31,9 +32,9 @@ class VenueController extends Controller
         return redirect()->route('admin.venues.index')->with('status', 'Площадка создана');
     }
 
-    public function edit(Venue $venue): View
+    public function edit(Venue $venue): Response
     {
-        return view('admin.venues.edit', compact('venue'));
+        return Inertia::render('Admin/Venues/Edit', compact('venue'));
     }
 
     public function update(Request $request, Venue $venue): RedirectResponse

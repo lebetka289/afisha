@@ -27,6 +27,11 @@ class User extends Authenticatable
         'avatar',
     ];
 
+    protected $appends = [
+        'avatar_src',
+        'avatar_is_video',
+    ];
+
     public function city(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(City::class);

@@ -15,23 +15,24 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class EventController extends Controller
 {
-    public function index(): View
+    public function index(): Response
     {
         $events = Event::query()->with('venue')->latest()->paginate(10);
 
-        return view('admin.events.index', compact('events'));
+        return Inertia::render('Admin/Events/Index', compact('events'));
     }
 
-    public function create(): View
+    public function create(): Response
     {
         $venues = Venue::orderBy('name')->get();
         $artists = Artist::orderBy('name')->get();
 
-        return view('admin.events.create', [
+        return Inertia::render('Admin/Events/Create', [
             'event' => new Event(),
             'venues' => $venues,
             'artists' => $artists,
@@ -58,13 +59,13 @@ class EventController extends Controller
         return redirect()->route('admin.events.edit', $event)->with('status', 'Событие создано');
     }
 
-    public function edit(Event $event): View
+    public function edit(Event $event): Response
     {
         $event->load('sections.seats', 'addons');
         $venues = Venue::orderBy('name')->get();
         $artists = Artist::orderBy('name')->get();
 
-        return view('admin.events.edit', compact('event', 'venues', 'artists'));
+        return Inertia::render('Admin/Events/Edit', compact('event', 'venues', 'artists'));
     }
 
     public function update(Request $request, Event $event): RedirectResponse

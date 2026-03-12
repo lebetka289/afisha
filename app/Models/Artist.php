@@ -23,6 +23,11 @@ class Artist extends Model
         'links' => 'array',
     ];
 
+    protected $appends = [
+        'photo_src',
+        'photo_is_video',
+    ];
+
     public function events(): HasMany
     {
         return $this->hasMany(Event::class);

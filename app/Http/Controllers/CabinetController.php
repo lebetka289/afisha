@@ -11,24 +11,25 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rules\Password;
-use Illuminate\View\View;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class CabinetController extends Controller
 {
-    public function index(): View
+    public function index(): Response
     {
         $user = auth()->user();
         $user->load(['city', 'bookings.event.venue']);
         $cities = City::orderBy('sort_order')->orderBy('name')->get();
 
-        return view('cabinet.index', [
+        return Inertia::render('Cabinet/Index', [
             'user' => $user,
             'bookings' => $user->bookings()->with('event.venue')->latest('booked_at')->get(),
             'cities' => $cities,
         ]);
     }
 
-    public function favorites(): View
+    public function favorites(): Response
     {
         $events = auth()->user()
             ->favoriteEvents()
@@ -36,7 +37,7 @@ class CabinetController extends Controller
             ->orderByPivot('created_at', 'desc')
             ->get();
 
-        return view('cabinet.favorites', ['events' => $events]);
+        return Inertia::render('Cabinet/Favorites', ['events' => $events]);
     }
 
     public function updateCity(Request $request): RedirectResponse
@@ -50,7 +51,7 @@ class CabinetController extends Controller
         return back()->with('status', 'Город обновлён.');
     }
 
-    public function showBooking(Booking $booking): View
+    public function showBooking(Booking $booking): Response
     {
         abort_unless($booking->user_id === auth()->id(), 403);
 
@@ -60,7 +61,7 @@ class CabinetController extends Controller
             'addons.eventAddon',
         ]);
 
-        return view('cabinet.booking-show', [
+        return Inertia::render('Cabinet/BookingShow', [
             'booking' => $booking,
             'qrUrl' => 'https://quickchart.io/qr?text=' . urlencode(route('cabinet.bookings.show', $booking) . '|' . $booking->reference) . '&size=220',
         ]);
@@ -95,9 +96,9 @@ class CabinetController extends Controller
         return redirect()->route('cabinet.bookings.show', $booking)->with('status', 'Билет успешно возвращён.');
     }
 
-    public function account(): View
+    public function account(): Response
     {
-        return view('cabinet.account', ['user' => auth()->user()]);
+        return Inertia::render('Cabinet/Account', ['user' => auth()->user()]);
     }
 
     public function updateAccount(Request $request): RedirectResponse
