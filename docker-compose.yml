@@ -1,0 +1,24 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      APP_NAME: "OnTheRise"
+      APP_ENV: local
+      APP_KEY: base64:WQBYBX+D5623Lu5ic+xgcV7QdrcAnId3FbEWKG0GuAQ=
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      DB_CONNECTION: sqlite
+      DB_DATABASE: /var/www/database/data/database.sqlite
+      SESSION_DRIVER: file
+      CACHE_STORE: file
+      QUEUE_CONNECTION: sync
+    volumes:
+      # Только данные БД (файл sqlite), миграции остаются в образе
+      - app_database:/var/www/database/data
+    working_dir: /var/www
+    restart: unless-stopped
+
+volumes:
+  app_database:
