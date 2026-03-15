@@ -4,9 +4,7 @@ import { Link, router } from '@inertiajs/react';
 
 export default function Index({ events }) {
     const deleteEvent = (event) => {
-        
-            router.delete(route('admin.events.destroy', event));
-        
+            router.delete(route('admin.events.destroy', event)); 
     };
 
     const formatDate = (dateString) => {

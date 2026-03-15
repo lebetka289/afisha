@@ -16,6 +16,9 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(CitiesSeeder::class);
+        $this->call(ArtistsSeeder::class);
+        $this->call(VenuesSeeder::class);
+        $this->call(UsersSeeder::class);
 
         $venue = Venue::firstOrCreate(
             ['slug' => 'aurora-hall'],
@@ -172,5 +175,10 @@ class DatabaseSeeder extends Seeder
             'layout_type' => 'custom',
             ]
         );
+
+        $this->call(EventsSeeder::class);
+        $this->call(EventAddonsSeeder::class);
+        $this->call(BookingsSeeder::class);
+        $this->call(NotificationsSeeder::class);
     }
 }
