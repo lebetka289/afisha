@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\VenueRequest;
 use App\Models\Venue;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,9 +24,9 @@ class VenueController extends Controller
         return Inertia::render('Admin/Venues/Create', ['venue' => new Venue()]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(VenueRequest $request): RedirectResponse
     {
-        $data = $this->validateVenue($request);
+        $data = $this->prepareVenueData($request->validated());
         Venue::create($data);
 
         return redirect()->route('admin.venues.index')->with('status', 'Площадка создана');
@@ -37,9 +37,9 @@ class VenueController extends Controller
         return Inertia::render('Admin/Venues/Edit', compact('venue'));
     }
 
-    public function update(Request $request, Venue $venue): RedirectResponse
+    public function update(VenueRequest $request, Venue $venue): RedirectResponse
     {
-        $data = $this->validateVenue($request, $venue->id);
+        $data = $this->prepareVenueData($request->validated());
         $venue->update($data);
 
         return redirect()->route('admin.venues.edit', $venue)->with('status', 'Площадка обновлена');
@@ -52,24 +52,8 @@ class VenueController extends Controller
         return redirect()->route('admin.venues.index')->with('status', 'Площадка удалена');
     }
 
-    protected function validateVenue(Request $request, ?int $venueId = null): array
+    protected function prepareVenueData(array $data): array
     {
-        $uniqueSlugRule = 'unique:venues,slug';
-        if ($venueId) {
-            $uniqueSlugRule .= ',' . $venueId;
-        }
-
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', $uniqueSlugRule],
-            'city' => ['nullable', 'string', 'max:255'],
-            'address' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'max_capacity' => ['nullable', 'integer', 'min:0'],
-            'layout_type' => ['required', 'string', 'max:50'],
-            'layout_config' => ['nullable'],
-        ]);
-
         if (blank($data['slug'] ?? null)) {
             $data['slug'] = Str::slug($data['name']);
         }

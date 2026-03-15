@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CabinetUpdateAccountRequest;
+use App\Http\Requests\CabinetUpdateCityRequest;
 use App\Models\Booking;
 use App\Models\City;
 use App\Models\EventSeat;
@@ -34,19 +36,15 @@ class CabinetController extends Controller
         $events = auth()->user()
             ->favoriteEvents()
             ->with(['venue'])
-            ->orderByPivot('created_at', 'desc')
+            ->orderBy('event_favorites.created_at', 'desc')
             ->get();
 
         return Inertia::render('Cabinet/Favorites', ['events' => $events]);
     }
 
-    public function updateCity(Request $request): RedirectResponse
+    public function updateCity(CabinetUpdateCityRequest $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'city_id' => ['required', 'exists:cities,id'],
-        ]);
-
-        auth()->user()->update(['city_id' => $validated['city_id']]);
+        auth()->user()->update(['city_id' => $request->validated()['city_id']]);
 
         return back()->with('status', 'Город обновлён.');
     }
@@ -101,16 +99,11 @@ class CabinetController extends Controller
         return Inertia::render('Cabinet/Account', ['user' => auth()->user()]);
     }
 
-    public function updateAccount(Request $request): RedirectResponse
+    public function updateAccount(CabinetUpdateAccountRequest $request): RedirectResponse
     {
         $user = auth()->user();
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
-            'password' => ['nullable', 'confirmed', Password::defaults()],
-            'avatar' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,mp4,webm,mov', 'max:51200'],
-        ]);
+        $validated = $request->validated();
 
         $user->name = $validated['name'];
         $user->email = $validated['email'];

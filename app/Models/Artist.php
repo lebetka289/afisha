@@ -23,6 +23,15 @@ class Artist extends Model
         'links' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (Artist $artist) {
+            if (blank($artist->slug)) {
+                $artist->slug = Str::slug($artist->name) . '-' . Str::random(4);
+            }
+        });
+    }
+
     protected $appends = [
         'photo_src',
         'photo_is_video',

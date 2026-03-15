@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\City;
 use App\Models\Event;
+use App\Models\EventView;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -119,6 +120,14 @@ class EventController extends Controller
         $isFavorited = auth()->check() && auth()->user()->favoriteEvents()->where('event_id', $event->id)->exists();
         $mapLat = $event->venue?->latitude ?? 55.7558;
         $mapLng = $event->venue?->longitude ?? 37.6173;
+
+        if (auth()->check()) {
+            EventView::create([
+                'user_id' => auth()->id(),
+                'event_id' => $event->id,
+                'viewed_at' => now(),
+            ]);
+        }
 
         return Inertia::render('Events/Show', [
             'event' => $event,

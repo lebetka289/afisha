@@ -22,6 +22,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'artist_id',
         'city_id',
         'is_admin',
         'avatar',
@@ -37,6 +39,11 @@ class User extends Authenticatable
         return $this->belongsTo(City::class);
     }
 
+    public function artist(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Artist::class);
+    }
+
     public function bookings(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Booking::class);
@@ -45,6 +52,11 @@ class User extends Authenticatable
     public function favoriteEvents(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Event::class, 'event_favorites', 'user_id', 'event_id')->withTimestamps();
+    }
+
+    public function favoriteArtists(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Artist::class, 'artist_favorites', 'user_id', 'artist_id')->withTimestamps();
     }
 
     /**
@@ -69,6 +81,21 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_admin' => 'boolean',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->is_admin || $this->role === 'admin';
+    }
+
+    public function isArtist(): bool
+    {
+        return $this->role === 'artist';
+    }
+
+    public function isOrganizer(): bool
+    {
+        return $this->role === 'organizer';
     }
 
     public function getAvatarSrcAttribute(): ?string

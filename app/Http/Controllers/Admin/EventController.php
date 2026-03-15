@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\EventRequest;
 use App\Models\Artist;
 use App\Models\Event;
 use App\Models\EventAddon;
@@ -39,7 +40,7 @@ class EventController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(EventRequest $request): RedirectResponse
     {
         $data = $this->validateEvent($request);
 
@@ -68,7 +69,7 @@ class EventController extends Controller
         return Inertia::render('Admin/Events/Edit', compact('event', 'venues', 'artists'));
     }
 
-    public function update(Request $request, Event $event): RedirectResponse
+    public function update(EventRequest $request, Event $event): RedirectResponse
     {
         $data = $this->validateEvent($request, $event->id);
 
@@ -93,35 +94,9 @@ class EventController extends Controller
         return redirect()->route('admin.events.index')->with('status', 'Событие удалено');
     }
 
-    protected function validateEvent(Request $request, ?int $eventId = null): array
+    protected function validateEvent(EventRequest $request, ?int $eventId = null): array
     {
-        $uniqueSlugRule = 'unique:events,slug';
-        if ($eventId) {
-            $uniqueSlugRule .= ',' . $eventId;
-        }
-
-        $validated = $request->validate([
-            'title' => ['required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', $uniqueSlugRule],
-            'venue_id' => ['nullable', 'exists:venues,id'],
-            'artist_id' => ['nullable', 'exists:artists,id'],
-            'subtitle' => ['nullable', 'string', 'max:255'],
-            'category' => ['required', 'in:concert,theater,show,standup'],
-            'description' => ['nullable', 'string'],
-            'poster_url' => ['nullable', 'string', 'max:2048'],
-            'poster_upload' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,mp4,webm,mov', 'max:51200'],
-            'start_at' => ['nullable', 'date'],
-            'end_at' => ['nullable', 'date', ...($request->filled('start_at') ? ['after_or_equal:start_at'] : [])],
-            'sales_start_at' => ['nullable', 'date'],
-            'sales_end_at' => ['nullable', 'date', ...($request->filled('sales_start_at') ? ['after_or_equal:sales_start_at'] : [])],
-            'status' => ['required', 'in:draft,published,archived'],
-            'max_tickets' => ['nullable', 'integer', 'min:0'],
-            'layout_type' => ['required', 'string', 'max:50'],
-            'layout_config' => ['nullable'],
-            'meta' => ['nullable'],
-            'sections_payload' => ['required'],
-            'addons_payload' => ['nullable'],
-        ]);
+        $validated = $request->validated();
 
         $layoutConfig = $this->decodeJsonField($validated['layout_config'] ?? null);
         $meta = $this->decodeJsonField($validated['meta'] ?? null);

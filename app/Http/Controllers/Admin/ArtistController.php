@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\ArtistRequest;
 use App\Models\Artist;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -25,9 +25,9 @@ class ArtistController extends Controller
         return Inertia::render('Admin/Artists/Create', ['artist' => new Artist()]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(ArtistRequest $request): RedirectResponse
     {
-        $data = $this->validateArtist($request);
+        $data = $this->prepareArtistData($request, new Artist());
         Artist::create($data);
 
         return redirect()->route('admin.artists.index')->with('status', 'Исполнитель создан');
@@ -38,9 +38,9 @@ class ArtistController extends Controller
         return Inertia::render('Admin/Artists/Edit', compact('artist'));
     }
 
-    public function update(Request $request, Artist $artist): RedirectResponse
+    public function update(ArtistRequest $request, Artist $artist): RedirectResponse
     {
-        $data = $this->validateArtist($request, $artist);
+        $data = $this->prepareArtistData($request, $artist);
         $artist->update($data);
 
         return redirect()->route('admin.artists.edit', $artist)->with('status', 'Исполнитель обновлён');
@@ -57,20 +57,9 @@ class ArtistController extends Controller
         return redirect()->route('admin.artists.index')->with('status', 'Исполнитель удалён');
     }
 
-    protected function validateArtist(Request $request, ?Artist $artist = null): array
+    protected function prepareArtistData(ArtistRequest $request, ?Artist $artist = null): array
     {
-        $uniqueSlugRule = 'unique:artists,slug';
-        if ($artist) {
-            $uniqueSlugRule .= ',' . $artist->id;
-        }
-
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', $uniqueSlugRule],
-            'description' => ['nullable', 'string'],
-            'photo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,gif,webp,mp4,webm,mov', 'max:51200'],
-            'links_json' => ['nullable', 'string'],
-        ]);
+        $data = $request->validated();
 
         if (blank($data['slug'] ?? null)) {
             $data['slug'] = Str::slug($data['name']);

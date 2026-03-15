@@ -2,29 +2,28 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\BookingStoreRequest;
 use App\Models\Booking;
 use App\Models\BookingAddon;
 use App\Models\BookingItem;
 use App\Models\Event;
 use App\Models\EventSeat;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class BookingController extends Controller
 {
-    public function store(Request $request, Event $event): RedirectResponse
+    public function store(BookingStoreRequest $request, Event $event): RedirectResponse
     {
-        $validated = $request->validate([
-            'customer_name' => ['required', 'string', 'max:255'],
-            'customer_email' => ['required', 'email'],
-            'customer_phone' => ['nullable', 'string', 'max:50'],
-            'tickets_payload' => ['required', 'string'],
-            'addons_payload' => ['nullable', 'string'],
-            'test_mode' => ['nullable', 'boolean'],
-        ]);
+        $validated = $request->validated();
         $testMode = $request->boolean('test_mode');
+
+        if ($event->start_at && $event->start_at->isPast()) {
+            throw ValidationException::withMessages([
+                'tickets_payload' => 'Нельзя забронировать билеты на прошедшее мероприятие.',
+            ]);
+        }
 
         $ticketsPayload = json_decode($validated['tickets_payload'], true);
 
