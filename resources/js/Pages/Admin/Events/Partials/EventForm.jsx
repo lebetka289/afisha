@@ -87,6 +87,9 @@ export default function EventForm({ event, venues, artists, action, method = 'PO
     const [mapLng, setMapLng] = useState(event.longitude ?? event.venue?.longitude ?? 37.6173);
     const [mapSearchQuery, setMapSearchQuery] = useState('');
     const [mapSearching, setMapSearching] = useState(false);
+    const [mapSearchResults, setMapSearchResults] = useState([]);
+    const [mapSearchOpen, setMapSearchOpen] = useState(false);
+    const [mapSearchAttempted, setMapSearchAttempted] = useState(false);
     const mapContainerRef = useRef(null);
     const mapRef = useRef(null);
     const markerRef = useRef(null);
@@ -110,27 +113,47 @@ export default function EventForm({ event, venues, artists, action, method = 'PO
         setData('longitude', lng);
     };
 
+    const NOMINATIM_OPTS = {
+        headers: {
+            'Accept-Language': 'ru',
+            'User-Agent': 'AfishaEventAdmin/1.0 (Laravel; select point on map)',
+        },
+    };
+
     const searchMapAddress = async () => {
         const q = mapSearchQuery.trim();
         if (!q) return;
         setMapSearching(true);
+        setMapSearchResults([]);
+        setMapSearchOpen(true);
+        setMapSearchAttempted(false);
         try {
             const res = await fetch(
-                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
-                { headers: { 'Accept-Language': 'ru' } }
+                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1`,
+                NOMINATIM_OPTS
             );
             const json = await res.json();
-            if (json[0]) {
-                const lat = parseFloat(json[0].lat);
-                const lng = parseFloat(json[0].lon);
-                onMapCoordsChange(lat, lng);
-                if (mapRef.current) {
-                    mapRef.current.setView([lat, lng], 16);
-                    if (markerRef.current) markerRef.current.setLatLng([lat, lng]);
-                }
-            }
-        } catch (e) {}
+            setMapSearchResults(Array.isArray(json) ? json : []);
+            setMapSearchAttempted(true);
+        } catch (e) {
+            setMapSearchResults([]);
+            setMapSearchAttempted(true);
+        }
         setMapSearching(false);
+    };
+
+    const selectMapSearchResult = (item) => {
+        const lat = parseFloat(item.lat);
+        const lng = parseFloat(item.lon);
+        onMapCoordsChange(lat, lng);
+        if (mapRef.current) {
+            mapRef.current.setView([lat, lng], 16);
+            if (markerRef.current) markerRef.current.setLatLng([lat, lng]);
+        }
+        setMapSearchQuery(item.display_name || '');
+        setMapSearchResults([]);
+        setMapSearchOpen(false);
+        setMapSearchAttempted(false);
     };
 
     useEffect(() => {
@@ -426,7 +449,7 @@ export default function EventForm({ event, venues, artists, action, method = 'PO
                         <select value={data.venue_id} onChange={e => setData('venue_id', e.target.value)} className="mt-1 w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-white focus:border-indigo-500 focus:ring-0">
                             <option value="">— Не указано —</option>
                             {venues.map(venue => (
-                                <option key={venue.id} value={venue.id}>{venue.name}</option>
+                                <option key={venue.id} value={venue.id}>{venue.name}{venue.city ? ` · ${venue.city}` : ''}</option>
                             ))}
                         </select>
                     </label>
@@ -441,13 +464,14 @@ export default function EventForm({ event, venues, artists, action, method = 'PO
                     {(data.venue_id || data.latitude !== '' || data.longitude !== '') && (
                         <div className="col-span-full space-y-2">
                             <p className="text-xs uppercase text-slate-500 tracking-wide">Точка на карте (для страницы мероприятия)</p>
-                            <div className="flex flex-wrap gap-2 mb-2">
+                            <div className="relative flex flex-wrap gap-2 mb-2">
                                 <input
                                     type="text"
                                     value={mapSearchQuery}
-                                    onChange={e => setMapSearchQuery(e.target.value)}
+                                    onChange={e => { setMapSearchQuery(e.target.value); setMapSearchOpen(false); }}
                                     onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), searchMapAddress())}
-                                    placeholder="Город или адрес, например: Москва, Красная площадь"
+                                    onFocus={() => mapSearchResults.length > 0 && setMapSearchOpen(true)}
+                                    placeholder="Город или адрес, например: Москва, Казань, Красная площадь"
                                     className="flex-1 min-w-[200px] rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-white text-sm placeholder-slate-600"
                                 />
                                 <button
@@ -456,8 +480,39 @@ export default function EventForm({ event, venues, artists, action, method = 'PO
                                     disabled={mapSearching || !mapSearchQuery.trim()}
                                     className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-bold"
                                 >
-                                    {mapSearching ? 'Поиск...' : 'Найти на карте'}
+                                    {mapSearching ? 'Поиск...' : 'Найти'}
                                 </button>
+                                {mapSearchOpen && mapSearchResults.length > 0 && (
+                                    <>
+                                        <div className="fixed inset-0 z-10" aria-hidden="true" onClick={() => setMapSearchOpen(false)} />
+                                        <ul className="absolute top-full left-0 right-0 z-20 mt-1 rounded-xl border border-slate-700 bg-slate-900 shadow-xl overflow-hidden max-h-60 overflow-y-auto">
+                                            {mapSearchResults.map((item, i) => (
+                                                <li key={i}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => selectMapSearchResult(item)}
+                                                        className="w-full text-left px-3 py-2.5 text-sm text-slate-200 hover:bg-violet-600/30 hover:text-white border-b border-slate-800 last:border-0"
+                                                    >
+                                                        <span className="font-medium text-white">{item.display_name}</span>
+                                                        {item.address && (
+                                                            <span className="block text-xs text-slate-500 mt-0.5">
+                                                                {[item.address.city || item.address.town || item.address.village, item.address.state, item.address.country].filter(Boolean).join(', ')}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </>
+                                )}
+                                {mapSearchOpen && mapSearchAttempted && !mapSearching && mapSearchResults.length === 0 && mapSearchQuery.trim() && (
+                                    <>
+                                        <div className="fixed inset-0 z-10" aria-hidden="true" onClick={() => setMapSearchOpen(false)} />
+                                        <p className="absolute top-full left-0 right-0 z-20 mt-1 px-3 py-2 text-sm text-slate-500 rounded-xl bg-slate-900 border border-slate-700">
+                                            Ничего не найдено. Уточните запрос (город, адрес).
+                                        </p>
+                                    </>
+                                )}
                             </div>
                             <div className="rounded-xl overflow-hidden border border-slate-800 aspect-[21/9] bg-slate-950 h-[280px]">
                                 <div ref={mapContainerRef} className="w-full h-full" />
